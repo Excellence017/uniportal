@@ -69,6 +69,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Branch names such as "1/merge" contain "/", which is not allowed in file or artifact names.
+      - name: Safe label for this branch
+        run: echo "LABEL=$(echo "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')" >> "$GITHUB_ENV"
       - name: Start app and WAF
         env:
           UNIPORTAL_SECRET_KEY: ci-${{ github.run_id }}
@@ -76,7 +79,7 @@ jobs:
           docker compose --profile waf up -d --build
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:8080/login >/dev/null && break; sleep 2; done
       - name: Requests sent straight to the app
-        run: python3 scripts/waf_eval.py --target http://127.0.0.1:5000 --label "${{ github.ref_name }}-direct"
+        run: python3 scripts/waf_eval.py --target http://127.0.0.1:5000 --label "${{ env.LABEL }}-direct"
       - name: Reset app state (database and login limiter)
         env:
           UNIPORTAL_SECRET_KEY: ci-${{ github.run_id }}
@@ -84,14 +87,14 @@ jobs:
           docker compose --profile waf up -d --force-recreate app
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:5000/login >/dev/null && break; sleep 1; done
       - name: The same requests through the WAF
-        run: python3 scripts/waf_eval.py --target http://127.0.0.1:8080 --label "${{ github.ref_name }}-waf"
+        run: python3 scripts/waf_eval.py --target http://127.0.0.1:8080 --label "${{ env.LABEL }}-waf"
       - name: Publish results
         if: always()
         run: cat results/*.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: waf-results-${{ github.ref_name }}
+          name: waf-results-${{ env.LABEL }}
           path: results/
 
   dast:
