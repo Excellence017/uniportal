@@ -1,0 +1,5 @@
+# Historical finding, remediated by FIX-5:
+# the hardcoded key in the baseline commit was removed from the code and rotated.
+# The live key now comes only from the UNIPORTAL_SECRET_KEY environment variable,
+# so the old value in git history signs nothing. Accepted as a documented baseline.
+175afe262a8601baac8bae2986114afa0bdd3a5e:app.py:flask-hardcoded-secret-key:43
