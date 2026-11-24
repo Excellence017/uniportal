@@ -6,25 +6,48 @@ security flaws for teaching. Run it only on your own machine, bound to
 
 Each planted flaw is marked with a comment: VULN-<n> (<OWASP Top 10:2025 id>).
 """
-import hashlib
 import os
 import sqlite3
+import time
 from functools import wraps
 
 from flask import (Flask, abort, flash, g, redirect, render_template,
                    request, session, url_for)
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import init_db
 
 
 def hash_password(password):
-    # VULN-4 (A07): unsalted MD5. It is fast to compute, so a stolen hash can be
-    # cracked with a wordlist, and identical passwords produce identical hashes.
-    return hashlib.md5(password.encode()).hexdigest()
+    # FIX-4 (A07): slow, salted, memory-hard hash (scrypt in Werkzeug 3).
+    # Each password gets its own random salt, and every guess costs real time and memory.
+    return generate_password_hash(password)
 
 
-def verify_password(stored_hash, password):
-    return stored_hash == hash_password(password)
+class LoginLimiter:
+    """FIX-4 (A07): after MAX_FAILURES wrong passwords for one account from one
+    address within WINDOW seconds, further attempts are refused with 429."""
+
+    MAX_FAILURES = 5
+    WINDOW = 15 * 60
+
+    def __init__(self):
+        self._failures = {}
+
+    def _recent(self, key):
+        now = time.monotonic()
+        recent = [t for t in self._failures.get(key, []) if now - t < self.WINDOW]
+        self._failures[key] = recent
+        return recent
+
+    def is_blocked(self, key):
+        return len(self._recent(key)) >= self.MAX_FAILURES
+
+    def record_failure(self, key):
+        self._recent(key).append(time.monotonic())
+
+    def reset(self, key):
+        self._failures.pop(key, None)
 
 
 def login_required(view):
@@ -63,6 +86,9 @@ def create_app(test_config=None):
 
     if not os.path.exists(app.config["DATABASE"]):
         init_db(app.config["DATABASE"], hash_password)
+
+    limiter = LoginLimiter()
+    dummy_hash = hash_password("not-a-real-password")
 
     def get_db():
         if "db" not in g:
@@ -106,19 +132,26 @@ def create_app(test_config=None):
         if request.method == "POST":
             username = request.form.get("username", "")
             password = request.form.get("password", "")
+            limiter_key = (username.lower(), request.remote_addr)
+            if limiter.is_blocked(limiter_key):
+                flash("Too many failed attempts. Try again in 15 minutes.")
+                return render_template("login.html"), 429
             # FIX-1 (A05): the query text is fixed; the username is sent separately as
             # a parameter, so the database always treats it as data, never as SQL.
-            # VULN-4 (A07): no limit on failed attempts, so passwords can be guessed.
             user = get_db().execute(
-                "SELECT * FROM users WHERE username = ? AND password_hash = ?",
-                (username, hash_password(password)),
+                "SELECT * FROM users WHERE username = ?", (username,)
             ).fetchone()
-            if user:
+            # FIX-4 (A07): compare against the salted hash. For unknown users we still
+            # run one hash check, so response time does not reveal which usernames exist.
+            stored = user["password_hash"] if user else dummy_hash
+            if check_password_hash(stored, password) and user:
+                limiter.reset(limiter_key)
                 session.clear()
                 session["user_id"] = user["id"]
                 session["username"] = user["username"]
                 session["role"] = user["role"]
                 return redirect(url_for("dashboard"))
+            limiter.record_failure(limiter_key)
             flash("Invalid username or password.")
         return render_template("login.html")
 
