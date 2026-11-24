@@ -36,6 +36,20 @@ def login_required(view):
     return wrapped
 
 
+def require_role(role):
+    """Stop the request with 403 Forbidden unless the user has this role."""
+    if session.get("role") != role:
+        abort(403)
+
+
+def require_student_access(student_id):
+    """Students may open only their own record; lecturers may open any student's."""
+    if session.get("role") == "lecturer":
+        return
+    if session.get("user_id") != student_id:
+        abort(403)
+
+
 def create_app(test_config=None):
     app = Flask(__name__)
     # VULN-5 (A02): the secret key that signs session cookies is hardcoded in the
@@ -122,8 +136,9 @@ def create_app(test_config=None):
     @login_required
     def grades():
         student_id = request.args.get("student_id", session["user_id"], type=int)
-        # VULN-3 (A01): the student_id comes from the URL and is never checked
-        # against the logged-in user. Changing the number shows anyone's grades.
+        # FIX-3 (A01): the server checks that this user may see this student,
+        # instead of trusting the number in the URL.
+        require_student_access(student_id)
         db = get_db()
         student = db.execute(
             "SELECT id, full_name FROM users WHERE id = ? AND role = 'student'",
@@ -142,7 +157,8 @@ def create_app(test_config=None):
     @app.route("/grades/edit", methods=["POST"])
     @login_required
     def edit_grade():
-        # VULN-3 (A01): any logged-in user can change a grade; the role is never checked.
+        # FIX-3 (A01): only lecturers may change grades; checked on the server.
+        require_role("lecturer")
         grade_id = request.form.get("grade_id", type=int)
         new_grade = request.form.get("grade", "").strip()[:3]
         db = get_db()
