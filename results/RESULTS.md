@@ -127,3 +127,18 @@ job was changed to run the Gitleaks CLI over the whole history
 historical finding is accepted in `.gitleaksignore`.
 Lesson: a security tool can pass by quietly checking less than you assume.
 Each tool in the gate was checked against a known-bad input.
+
+## 8. Regression demo: pull request #1
+
+<https://github.com/Excellence017/uniportal/pull/1> reverts FIX-3 (brings the
+IDOR back). Required checks failed in two independent jobs:
+
+- pytest: `test_student_cannot_view_other_students_grades` (expected 403, got 200),
+  `test_student_cannot_edit_grades` (expected 403, got 302);
+- Semgrep: `uniportal-student-id-without-access-check`,
+  `uniportal-grade-change-without-role-check`.
+
+GitHub shows the pull request as **blocked** (branch protection, 5 required checks).
+The first run also exposed a second pipeline fault: pull-request runs are named
+`1/merge`, and the `/` broke the WAF job's file and artifact names. Fixed by
+deriving a safe label from the branch name.
