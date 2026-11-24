@@ -62,6 +62,19 @@ def create_app(test_config=None):
         if db is not None:
             db.close()
 
+    @app.after_request
+    def security_headers(response):
+        # FIX-2 (A05): second layer against XSS. Even if a script got into a page,
+        # the browser only runs scripts loaded from this site, never inline ones.
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; object-src 'none'; "
+            "base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "same-origin"
+        return response
+
     @app.cli.command("init-db")
     def init_db_command():
         """Reset the database to the demo data."""

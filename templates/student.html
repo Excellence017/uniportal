@@ -5,7 +5,7 @@
   <h1>{{ user.full_name }}</h1>
   <p class="muted">{{ user.role }}</p>
   <h2>About me</h2>
-  {# VULN-2 (A05): the safe filter below turns off escaping, so HTML or script saved in a profile runs in every visitor's browser. #}
-  <div class="about">{{ user.about | safe }}</div>
+  {# FIX-2 (A05): normal escaping, so "<script>" is shown as text, never run. #}
+  <div class="about">{{ user.about }}</div>
 </section>
 {% endblock %}
