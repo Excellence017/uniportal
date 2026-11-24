@@ -75,11 +75,17 @@ def require_student_access(student_id):
 
 def create_app(test_config=None):
     app = Flask(__name__)
-    # VULN-5 (A02): the secret key that signs session cookies is hardcoded in the
-    # source. Anyone who reads the code can forge a session for any user.
-    app.config["SECRET_KEY"] = "uniportal-dev-key"
-    # VULN-5 (A02): session cookie readable from JavaScript, so an XSS can steal it.
-    app.config["SESSION_COOKIE_HTTPONLY"] = False
+    # FIX-5 (A02): the signing key lives outside the code, in an environment
+    # variable. The app refuses to start without one instead of using a default.
+    secret_key = os.environ.get("UNIPORTAL_SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError("Set the UNIPORTAL_SECRET_KEY environment variable.")
+    app.config["SECRET_KEY"] = secret_key
+    # FIX-5 (A02): scripts cannot read the session cookie, and other sites
+    # cannot send it with cross-site form posts.
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get("UNIPORTAL_HTTPS") == "1"
     app.config["DATABASE"] = os.environ.get("UNIPORTAL_DB", "uniportal.db")
     if test_config:
         app.config.update(test_config)
@@ -114,6 +120,19 @@ def create_app(test_config=None):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
         return response
+
+    # FIX-5 (A02/A10): errors show a plain page; details go to the server log only.
+    @app.errorhandler(403)
+    def forbidden(_e):
+        return render_template("error.html", code=403, message="You do not have access to this page."), 403
+
+    @app.errorhandler(404)
+    def not_found(_e):
+        return render_template("error.html", code=404, message="Page not found."), 404
+
+    @app.errorhandler(500)
+    def server_error(_e):
+        return render_template("error.html", code=500, message="Something went wrong."), 500
 
     @app.cli.command("init-db")
     def init_db_command():
@@ -252,5 +271,9 @@ def create_app(test_config=None):
 
 if __name__ == "__main__":
     application = create_app()
-    # VULN-5 (A02): debug mode shows full stack traces and the interactive debugger.
-    application.run(host=os.environ.get("HOST", "127.0.0.1"), port=5000, debug=True)
+    # FIX-5 (A02): debug mode is off unless explicitly switched on for development.
+    application.run(
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=5000,
+        debug=os.environ.get("UNIPORTAL_DEBUG") == "1",
+    )
