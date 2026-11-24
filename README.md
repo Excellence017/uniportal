@@ -51,6 +51,9 @@ python app.py                                             # http://127.0.0.1:500
 ```
 
 Reset the demo data at any time with `flask --app app:create_app init-db`.
+**When you switch branches, delete `uniportal.db` (or run `init-db`)**: the two
+versions store passwords with different hashes, so one branch cannot log in
+with the other's database.
 
 Demo accounts (synthetic): `alice` / `Alice#Lab2026` (student), `bob` / `sunshine`
 (student, deliberately weak password), `drsmirnova` / `Lecturer#Lab2026` (lecturer).

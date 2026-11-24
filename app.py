@@ -4,7 +4,8 @@ WARNING: the `vulnerable` branch of this repository contains intentional
 security flaws for teaching. Run it only on your own machine, bound to
 127.0.0.1, and never expose it to a network.
 
-Each planted flaw is marked with a comment: VULN-<n> (<OWASP Top 10:2025 id>).
+On the `vulnerable` branch each planted flaw is marked VULN-<n> (<OWASP id>);
+on `main` each fix is marked FIX-<n> at the same place.
 """
 import os
 import sqlite3
