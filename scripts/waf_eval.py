@@ -76,7 +76,8 @@ def case_sqli_search(base):
     s = Session(base)
     s.login(*ALICE)
     status, _, body = s.request("GET", "/courses", params={"q": "zzz' OR '1'='1' --"})
-    return classify(status, body, status == 200 and b"Applied Security" in body)
+    # Safe code searches for the text literally and finds nothing.
+    return classify(status, body, status == 200 and b"No courses match" not in body)
 
 
 def case_stored_xss(base):
