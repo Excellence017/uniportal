@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ user.full_name }}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ user.full_name }}</h1>
+  <p class="muted">{{ user.role }}</p>
+  <h2>About me</h2>
+  {# VULN-2 (A05): the safe filter below turns off escaping, so HTML or script saved in a profile runs in every visitor's browser. #}
+  <div class="about">{{ user.about | safe }}</div>
+</section>
+{% endblock %}

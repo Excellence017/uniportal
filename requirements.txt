@@ -1,0 +1,3 @@
+# VULN-6 (A03): outdated versions with published security advisories
+Flask==2.2.2
+Werkzeug==2.2.2

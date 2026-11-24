@@ -1,0 +1,26 @@
+# Lab environment.
+#   docker compose up --build            -> app only, http://127.0.0.1:5000
+#   docker compose --profile waf up      -> app + ModSecurity WAF, http://127.0.0.1:8080
+# Ports are bound to 127.0.0.1 so the lab is never reachable from the network.
+services:
+  app:
+    build: .
+    environment:
+      UNIPORTAL_SECRET_KEY: ${UNIPORTAL_SECRET_KEY:-lab-only-change-me}
+    ports:
+      - "127.0.0.1:5000:5000"
+
+  waf:
+    profiles: ["waf"]
+    image: owasp/modsecurity-crs:4.25-nginx-lts
+    environment:
+      BACKEND: http://app:5000
+      PORT: "8080"
+      BLOCKING_PARANOIA: "1"
+      ANOMALY_INBOUND: "5"
+      ANOMALY_OUTBOUND: "4"
+      MODSEC_RULE_ENGINE: "On"
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - app

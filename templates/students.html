@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Directory{% endblock %}
+{% block content %}
+<h1>Directory</h1>
+<table>
+  <thead><tr><th>Name</th><th>Role</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><a href="{{ url_for('student', student_id=r.id) }}">{{ r.full_name }}</a></td>
+      <td>{{ r.role }}</td>
+      <td>{% if session.get('role') == 'lecturer' and r.role == 'student' %}<a href="{{ url_for('grades', student_id=r.id) }}">Grades</a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,114 @@
+# Custom Semgrep rules written for UniPortal's own code patterns.
+# Generic rule packs know common mistakes; these rules know how THIS app is built
+# (for example, that every view taking a student_id must call require_student_access).
+rules:
+  - id: uniportal-sql-built-from-strings
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQL text is built by joining or formatting strings (VULN-1, OWASP A05).
+      Pass user values as parameters: db.execute("... WHERE x = ?", (value,)).
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute($A + $B, ...)
+          - pattern: $DB.execute(f"...", ...)
+          - pattern: $DB.execute("..." % $X, ...)
+          - pattern: $DB.execute("...".format(...), ...)
+          - pattern: |
+              $Q = $A + $B
+              ...
+              $DB.execute($Q, ...)
+    metadata:
+      owasp: "A05:2025 - Injection"
+      cwe: "CWE-89"
+
+  - id: uniportal-jinja-safe-filter
+    languages: [generic]
+    paths:
+      include: ["templates/*.html"]
+    severity: ERROR
+    message: >-
+      The |safe filter turns off HTML escaping (VULN-2, OWASP A05).
+      User-supplied text must be rendered with normal {{ value }} escaping.
+    pattern: "| safe"
+    metadata:
+      owasp: "A05:2025 - Injection"
+      cwe: "CWE-79"
+
+  - id: uniportal-student-id-without-access-check
+    languages: [python]
+    severity: ERROR
+    message: >-
+      This view reads student_id from the request but never calls
+      require_student_access(), so any user can open any student's record
+      (VULN-3, OWASP A01).
+    patterns:
+      - pattern-inside: |
+          def $VIEW(...):
+            ...
+      - pattern: request.args.get("student_id", ...)
+      - pattern-not-inside: |
+          def $VIEW(...):
+            ...
+            require_student_access(...)
+            ...
+    metadata:
+      owasp: "A01:2025 - Broken Access Control"
+      cwe: "CWE-639"
+
+  - id: uniportal-grade-change-without-role-check
+    languages: [python]
+    severity: ERROR
+    message: >-
+      This view changes grades but never calls require_role("lecturer")
+      (VULN-3, OWASP A01).
+    patterns:
+      - pattern-inside: |
+          def $VIEW(...):
+            ...
+      - pattern: $DB.execute("=~/^UPDATE grades/", ...)
+      - pattern-not-inside: |
+          def $VIEW(...):
+            ...
+            require_role("lecturer")
+            ...
+    metadata:
+      owasp: "A01:2025 - Broken Access Control"
+      cwe: "CWE-862"
+
+  - id: uniportal-fast-password-hash
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MD5/SHA-1 are fast general-purpose hashes and must not store passwords
+      (VULN-4, OWASP A07). Use a slow salted hash such as scrypt or Argon2id.
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+    metadata:
+      owasp: "A07:2025 - Authentication Failures"
+      cwe: "CWE-916"
+
+  - id: uniportal-hardcoded-secret-key
+    languages: [python]
+    severity: ERROR
+    message: >-
+      The Flask SECRET_KEY is hardcoded (VULN-5, OWASP A02). Anyone with the
+      source can forge session cookies. Read it from the environment.
+    pattern: $APP.config["SECRET_KEY"] = "..."
+    metadata:
+      owasp: "A02:2025 - Security Misconfiguration"
+      cwe: "CWE-798"
+
+  - id: uniportal-insecure-cookie-or-debug
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Insecure configuration (VULN-5, OWASP A02): debug mode exposes stack
+      traces and the debugger; HttpOnly=False lets scripts read the session cookie.
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: $APP.config["SESSION_COOKIE_HTTPONLY"] = False
+    metadata:
+      owasp: "A02:2025 - Security Misconfiguration"
+      cwe: "CWE-489"

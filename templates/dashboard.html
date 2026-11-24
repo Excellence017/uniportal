@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Welcome, {{ session.get('username') }}</h1>
+<div class="grid">
+  <a class="card tile" href="{{ url_for('grades', student_id=session.get('user_id')) if session.get('role') == 'student' else url_for('students') }}">
+    <h2>{{ 'My grades' if session.get('role') == 'student' else 'Students' }}</h2>
+    <p>{{ 'View your results for this semester.' if session.get('role') == 'student' else 'Open a student to view and edit grades.' }}</p>
+  </a>
+  <a class="card tile" href="{{ url_for('courses') }}"><h2>Course catalogue</h2><p>Search courses by code or title.</p></a>
+  <a class="card tile" href="{{ url_for('profile') }}"><h2>My profile</h2><p>Edit the “About me” text others see.</p></a>
+</div>
+{% endblock %}

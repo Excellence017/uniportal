@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Grades{% endblock %}
+{% block content %}
+<h1>Grades: {{ student.full_name }}</h1>
+<table>
+  <thead><tr><th>Code</th><th>Course</th><th>Grade</th>{% if session.get('role') == 'lecturer' %}<th>Change</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.code }}</td><td>{{ r.title }}</td><td class="grade">{{ r.grade }}</td>
+      {% if session.get('role') == 'lecturer' %}
+      <td>
+        <form method="post" action="{{ url_for('edit_grade') }}" class="inline">
+          <input type="hidden" name="grade_id" value="{{ r.id }}">
+          <input name="grade" size="3" maxlength="3" value="{{ r.grade }}" aria-label="New grade">
+          <button type="submit">Save</button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+  {% else %}
+    <tr><td colspan="4">No grades yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

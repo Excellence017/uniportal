@@ -1,0 +1,12 @@
+# Gitleaks configuration: the default rule set plus a rule for this app's Flask key.
+title = "UniPortal secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "flask-hardcoded-secret-key"
+description = "Flask SECRET_KEY assigned a literal string in source code"
+regex = '''SECRET_KEY["']\]\s*=\s*["']([^"']{8,})["']'''
+secretGroup = 1
+keywords = ["secret_key"]

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>My profile</h1>
+  <p><strong>{{ user.full_name }}</strong> · {{ user.role }}</p>
+  <form method="post">
+    <label>About me (shown in the directory)
+      <textarea name="about" rows="5" maxlength="500">{{ user.about }}</textarea>
+    </label>
+    <button type="submit">Save</button>
+  </form>
+</section>
+{% endblock %}
