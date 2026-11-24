@@ -143,7 +143,8 @@ def main():
     print(report)
 
     os.makedirs("results", exist_ok=True)
-    with open(os.path.join("results", f"waf_{args.label}.md"), "w", encoding="utf-8") as f:
+    safe_label = "".join(c if c.isalnum() or c in "._-" else "-" for c in args.label)
+    with open(os.path.join("results", f"waf_{safe_label}.md"), "w", encoding="utf-8") as f:
         f.write(report)
 
 
