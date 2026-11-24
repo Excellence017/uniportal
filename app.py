@@ -79,13 +79,13 @@ def create_app(test_config=None):
         if request.method == "POST":
             username = request.form.get("username", "")
             password = request.form.get("password", "")
-            # VULN-1 (A05): user input is pasted straight into the SQL text.
+            # FIX-1 (A05): the query text is fixed; the username is sent separately as
+            # a parameter, so the database always treats it as data, never as SQL.
             # VULN-4 (A07): no limit on failed attempts, so passwords can be guessed.
-            query = (
-                "SELECT * FROM users WHERE username = '" + username + "' "
-                "AND password_hash = '" + hash_password(password) + "'"
-            )
-            user = get_db().execute(query).fetchone()
+            user = get_db().execute(
+                "SELECT * FROM users WHERE username = ? AND password_hash = ?",
+                (username, hash_password(password)),
+            ).fetchone()
             if user:
                 session.clear()
                 session["user_id"] = user["id"]
@@ -176,10 +176,12 @@ def create_app(test_config=None):
     @login_required
     def courses():
         q = request.args.get("q", "")
-        # VULN-1 (A05): the search term is concatenated into the SQL text.
+        # FIX-1 (A05): parameterised query; the search term can never change the SQL.
+        pattern = f"%{q}%"
         rows = get_db().execute(
             "SELECT code, title, lecturer FROM courses "
-            "WHERE title LIKE '%" + q + "%' OR code LIKE '%" + q + "%' ORDER BY code"
+            "WHERE title LIKE ? OR code LIKE ? ORDER BY code",
+            (pattern, pattern),
         ).fetchall()
         return render_template("courses.html", rows=rows, q=q)
 
