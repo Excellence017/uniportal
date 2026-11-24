@@ -62,6 +62,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
 
+  waf-eval:
+    name: Defense in depth (app alone vs app behind ModSecurity WAF)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start app and WAF
+        env:
+          UNIPORTAL_SECRET_KEY: ci-${{ github.run_id }}
+        run: |
+          docker compose --profile waf up -d --build
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:8080/login >/dev/null && break; sleep 2; done
+      - name: Requests sent straight to the app
+        run: python3 scripts/waf_eval.py --target http://127.0.0.1:5000 --label "${{ github.ref_name }}-direct"
+      - name: Reset app state (database and login limiter)
+        env:
+          UNIPORTAL_SECRET_KEY: ci-${{ github.run_id }}
+        run: |
+          docker compose --profile waf up -d --force-recreate app
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:5000/login >/dev/null && break; sleep 1; done
+      - name: The same requests through the WAF
+        run: python3 scripts/waf_eval.py --target http://127.0.0.1:8080 --label "${{ github.ref_name }}-waf"
+      - name: Publish results
+        if: always()
+        run: cat results/*.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: waf-results-${{ github.ref_name }}
+          path: results/
+
   dast:
     name: Dynamic scan (OWASP ZAP baseline)
     runs-on: ubuntu-latest
